@@ -1,0 +1,23 @@
+## Issue 4: Service Without Endpoints
+
+### Symptom
+Requests to the backend Service failed with a connection error.
+
+### Investigation
+Changed the backend Service selector to `app: no-matching-pod` and inspected the endpoints.
+
+### Observations
+- `kubectl get endpoints backend-service` showed `<none>`.
+- The backend EndpointSlice showed no usable endpoints or port.
+- The connectivity test failed with `curl: (7) Failed to connect`.
+
+### Root Cause
+The Service selector did not match the backend Pod labels, leaving the Service without endpoints.
+
+### Resolution
+Restored the selector to `app: backend`.
+
+### Verification
+Confirmed that the backend Pod endpoint was restored and the request to `/orders` succeeded.
+
+**Result:** Resolved.

@@ -21,3 +21,4 @@ Restored the selector to `app: backend`.
 Confirmed that the backend Pod endpoint was restored and the request to `/orders` succeeded.
 
 **Result:** Resolved.
+<img width="1908" height="630" alt="image" src="https://github.com/user-attachments/assets/f2d80246-24a5-40f1-b2e7-f9ef6638de0e" />

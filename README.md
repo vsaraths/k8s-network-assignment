@@ -1,81 +1,113 @@
-# Kubernetes Networking Troubleshooting Assignment
 
-## 1. Project Overview
+# Kubernetes Networking Troubleshooting Lab
 
-This project demonstrates Kubernetes application networking using three components:
+A hands-on Kubernetes networking project that demonstrates how to deploy a multi-component application, validate communication between services, introduce networking failures, troubleshoot them, and verify recovery.
 
-- Client: Sends HTTP requests to the frontend.
-- Frontend: Receives requests and calls the backend.
-- Backend: Returns an orders response.
+## Project Overview
 
-## 2. Architecture
+The application consists of three components:
 
-Client → frontend-service:8081 → Frontend Pod
-Frontend Pod → backend-service:8080 → Backend Pod
+- **Client:** Sends HTTP requests to the frontend.
+- **Frontend:** Exposes an `/orders` endpoint and calls the backend.
+- **Backend:** Provides the `/orders` and `/health` endpoints.
 
-## 3. Healthy Baseline
+The application runs on a Kubernetes cluster created with Kind. Docker is used to build the application images, and Kubernetes Deployments and ClusterIP Services manage the workloads and internal communication.
 
-The backend and frontend Deployments were running successfully.
+## Architecture
 
-Both Kubernetes Services had valid endpoints. A request to
-`http://frontend-service:8081/orders` returned the expected JSON response.
-
-## 4. Symptom
-
-After introducing a Service selector mismatch, client requests
-failed with HTTP 500 Internal Server Error.
-
-## 5. Investigation
-
-Commands used:
-
-```bash
-kubectl get pods -o wide
-kubectl get services
-kubectl get endpointslices
-kubectl logs deployment/client --since=2m
-kubectl get endpointslices -l kubernetes.io/service-name=backend-service
+```text
+Client
+  |
+  v
+Frontend Service :8081
+  |
+  v
+Frontend Pod
+  |
+  v
+Backend Service :8080
+  |
+  v
+Backend Pod
 ```
 
-The backend Service EndpointSlice showed no endpoints.
+## Technologies Used
 
-## 6. Root Cause
+- Ubuntu on AWS EC2
+- Docker
+- Kubernetes
+- Kind
+- kubectl
+- Python and Flask
+- Kubernetes Deployments and Services
+- NetworkPolicy
 
-The backend Service selector was changed to:
+## Project Structure
 
-`app: wrong-backend`
+| Directory/File | Purpose |
+|---|---|
+| `backend/` | Backend application and Docker configuration |
+| `frontend/` | Frontend application and Docker configuration |
+| `client/` | Client request application and Docker configuration |
+| `k8s/` | Kubernetes Deployment and Service manifests |
+| `docs/networking-issues.md` | Detailed networking troubleshooting report |
 
-The backend Pod had the label:
+## Application Workflow
 
-`app: backend`
+1. The client sends an HTTP request to the frontend Service.
+2. Kubernetes routes the request to the frontend Pod.
+3. The frontend calls the backend using `backend-service:8080`.
+4. The backend returns an orders response.
+5. The frontend returns the combined response to the client.
 
-Because the labels did not match, Kubernetes could not associate the backend Pod with the Service. Requests from the frontend therefore failed.
+## Setup and Deployment
 
-## 7. Resolution
+The project uses Docker images loaded into a Kind cluster. Kubernetes manifests in `k8s/` define the application Deployments and Services.
 
-Restored the correct Service selector:
+Typical workflow:
+
+1. Build the client, frontend, and backend images.
+2. Create the Kind cluster.
+3. Load the images into Kind.
+4. Apply the Kubernetes manifests.
+5. Verify the Pods and Services.
+6. Test the application through the frontend Service.
+
+See the Kubernetes manifests in `k8s/` for the deployment configuration.
+
+## Validation
+
+Test the frontend-to-backend flow from inside the cluster:
 
 ```bash
-kubectl patch service backend-service -p '{"spec":{"selector":{"app":"backend"}}}'
+kubectl run network-test --rm -i --restart=Never \
+  --image=curlimages/curl:latest -- \
+  curl -sS http://frontend-service:8081/orders
 ```
 
-## 8. Verification
+A successful request returns an orders response containing the frontend and backend service information.
 
-The EndpointSlice again showed the backend endpoint at
-`10.244.0.5:8080`.
+## Networking Troubleshooting
 
-The following test returned a successful orders response:
+The lab explores these networking failure scenarios:
 
-```bash
-kubectl run network-test --rm -i --restart=Never --image=curlimages/curl:latest -- curl -sS http://frontend-service:8081/orders
-```
+1. Incorrect Service selector
+2. Incorrect Service `targetPort`
+3. Application listening on the wrong port
+4. Service without endpoints
+5. Incorrect DNS or Service name
+6. NetworkPolicy blocking communication
+7. Pod reachable directly but not through the Kubernetes Service
 
-The response confirmed that frontend-to-backend communication was restored.
+Each issue is introduced intentionally, investigated, resolved, and tested for recovery.
 
-## 9. Key Learnings
+**Detailed findings:** [`docs/networking-issues.md`](docs/networking-issues.md)
 
-- Kubernetes Services use label selectors to identify backend Pods.
-- A running Pod does not guarantee that a Service can route traffic to it.
-- EndpointSlices help diagnose missing Service endpoints.
-- Kubernetes DNS enables communication using Service names.
-- Logs, selectors, and endpoints provide evidence for troubleshooting.
+## Learning Outcomes
+
+- Understand Kubernetes Service discovery and DNS.
+- Diagnose selector mismatches and missing endpoints.
+- Troubleshoot application and Service port mismatches.
+- Understand NetworkPolicy-based traffic restrictions.
+- Compare direct Pod connectivity with Service connectivity.
+- Validate recovery using `kubectl`, application logs, and HTTP requests.
